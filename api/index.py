@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-# from PIL import Image
-# import pytesseract
+from PIL import Image
+import pytesseract
 # from pydub import AudioSegment
 # import speech_recognition as sr
 # from sentence_transformers import SentenceTransformer
@@ -15,31 +15,31 @@ userInput = ""
 
 @app.route("/api/home", methods=['GET'])
 def return_home():
-    # global referenceText
-    # referenceText = request.args.get('value', default='default_value')
+    global referenceText
+    referenceText = request.args.get('value', default='default_value')
 
     return jsonify({
         'message': 'success'
     })
 
-# @app.route("/api/extractTextFromImage", methods=['POST'])
-# def extract_text_image():
-#     global referenceText
-#     file = request.files['file']
-#     # Save the uploaded image temporarily
-#     image_path = 'temp_image.png'
-#     file.save(image_path)
+@app.route("/api/extractTextFromImage", methods=['POST'])
+def extract_text_image():
+    global referenceText
+    file = request.files['file']
+    # Save the uploaded image temporarily
+    image_path = 'temp_image.png'
+    file.save(image_path)
 
-#     # Use Tesseract to extract text from the image
-#     referenceText = pytesseract.image_to_string(Image.open(image_path)).strip()
+    # Use Tesseract to extract text from the image
+    referenceText = pytesseract.image_to_string(Image.open(image_path)).strip()
 
-#     # Remove the temporary image file
-#     import os
-#     os.remove(image_path)
+    # Remove the temporary image file
+    import os
+    os.remove(image_path)
 
-#     return jsonify({
-#         'text': referenceText
-#     })
+    return jsonify({
+        'text': referenceText
+    })
 
 # @app.route("/api/extractTextFromAudio", methods=['POST'])
 # def extract_text_from_audio():
