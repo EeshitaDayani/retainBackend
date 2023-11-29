@@ -13,13 +13,13 @@ CORS(app)
 referenceText = ""
 userInput = ""
 
-@app.route("/api/home", methods=['GET'])
-def return_home():
+@app.route("/api/textInput", methods=['POST'])
+def return_text_input():
     global referenceText
     referenceText = request.args.get('value', default='default_value')
 
     return jsonify({
-        'message': 'success'
+        'message': referenceText
     })
 
 @app.route("/api/extractTextFromImage", methods=['POST'])
