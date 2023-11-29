@@ -2,8 +2,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
 import pytesseract
-# from pydub import AudioSegment
-# import speech_recognition as sr
+from pydub import AudioSegment
+import speech_recognition as sr
 # from sentence_transformers import SentenceTransformer
 # from sklearn.metrics.pairwise import cosine_similarity
 
@@ -41,33 +41,33 @@ def extract_text_image():
         'text': referenceText
     })
 
-# @app.route("/api/extractTextFromAudio", methods=['POST'])
-# def extract_text_from_audio():
-#     global referenceText
-#     audio_file = request.files['audio']
-#     # Save the uploaded audio temporarily
-#     audio_path = 'temp_audio.webm'
-#     audio_file.save(audio_path)
+@app.route("/api/extractTextFromAudio", methods=['POST'])
+def extract_text_from_audio():
+    global referenceText
+    audio_file = request.files['audio']
+    # Save the uploaded audio temporarily
+    audio_path = 'temp_audio.webm'
+    audio_file.save(audio_path)
 
-#     # Convert the webm format to wav using pydub
-#     sound = AudioSegment.from_file(audio_path, format="webm")
-#     sound.export("temp_audio.wav", format="wav")
+    # Convert the webm format to wav using pydub
+    sound = AudioSegment.from_file(audio_path, format="webm")
+    sound.export("temp_audio.wav", format="wav")
 
-#     # Use SpeechRecognition to transcribe the audio
-#     recognizer = sr.Recognizer()
-#     with sr.AudioFile("temp_audio.wav") as source:
-#         audio_data = recognizer.record(source)
-#         extracted_text = recognizer.recognize_google(audio_data, show_all=True)
-#         referenceText = extracted_text['alternative'][0]['transcript']
+    # Use SpeechRecognition to transcribe the audio
+    recognizer = sr.Recognizer()
+    with sr.AudioFile("temp_audio.wav") as source:
+        audio_data = recognizer.record(source)
+        extracted_text = recognizer.recognize_google(audio_data, show_all=True)
+        referenceText = extracted_text['alternative'][0]['transcript']
 
-#         # Remove the temporary audio files
-#         import os
-#         os.remove(audio_path)
-#         os.remove("temp_audio.wav")
+        # Remove the temporary audio files
+        import os
+        os.remove(audio_path)
+        os.remove("temp_audio.wav")
 
-#         return jsonify({
-#             'text': referenceText
-#         })
+        return jsonify({
+            'text': referenceText
+        })
 
 # @app.route("/api/getUserAttempt", methods=['POST'])
 # def extract_user_input():
