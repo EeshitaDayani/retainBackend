@@ -13,6 +13,12 @@ CORS(app)
 referenceText = ""
 userInput = ""
 
+@app.route("/api/", methods=['GET'])
+def home():
+    return jsonify({
+        'message': "Welcome to retain's backend"
+    })
+
 @app.route("/api/textInput", methods=['POST'])
 def return_text_input():
     global referenceText
