@@ -2,10 +2,11 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
 import pytesseract
+#from pydub import AudioSegment
+from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_audio
 import speech_recognition as sr
 import requests
-import tempfile
-import io
+
 
 app = Flask(__name__)
 CORS(app)
@@ -25,92 +26,92 @@ def return_text_input():
 @app.route("/api/extractTextFromImage", methods=['POST'])
 def extract_text_image():
     global referenceText
+    file = request.files['file']
+    # Save the uploaded image temporarily
+    image_path = 'temp_image.png'
+    file.save(image_path)
 
-    try:
-        file = request.files['file']
+    # Use Tesseract to extract text from the image
+    referenceText = pytesseract.image_to_string(Image.open(image_path)).strip()
 
-        # Create a temporary directory
-        temp_dir = tempfile.mkdtemp()
-        image_path = os.path.join(temp_dir, 'temp_image.png')
+    # Remove the temporary image file
+    import os
+    os.remove(image_path)
 
-        # Save the uploaded image temporarily
-        file.save(image_path)
-
-        # Use Tesseract to extract text from the image
-        referenceText = pytesseract.image_to_string(Image.open(image_path)).strip()
-
-        # Remove the temporary image file and directory
-        os.remove(image_path)
-        os.rmdir(temp_dir)
-
-        return jsonify({
-            'text': referenceText
-        })
-    except Exception as e:
-        print(f"Error extracting text from image: {e}")
-        return jsonify({
-            'text': ''
-        })
+    return jsonify({
+        'text': referenceText
+    })
 
 @app.route("/api/extractTextFromAudio", methods=['POST'])
 def extract_text_from_audio():
     global referenceText
+    audio_file = request.files['audio']
+    # Save the uploaded audio temporarily
+    audio_path = 'temp_audio.webm'
+    audio_file.save(audio_path)
 
-    try:
-        # Set the audio file
-        audio_file = request.files['audio']
+    # Convert the webm format to wav using pydub
+    #sound = AudioSegment.from_file(audio_path, format="webm")
+    #sound.export("temp_audio.wav", format="wav")
+    ffmpeg_extract_audio(audio_path, "temp_audio.wav")
+    #sound = moviepy.VideoFileClip(audio_path)
+    #sound.audio.write_audiofile("temp_audio.wav")
 
-        # Use SpeechRecognition to transcribe the audio
-        recognizer = sr.Recognizer()
-        
-        with sr.AudioFile(io.BytesIO(audio_file.read())) as source:
-            audio_data = recognizer.record(source)
-            extracted_text = recognizer.recognize_google(audio_data, show_all=True)
-            referenceText = extracted_text['alternative'][0]['transcript']
+    # Use SpeechRecognition to transcribe the audio
+    recognizer = sr.Recognizer()
+    with sr.AudioFile("temp_audio.wav") as source:
+        audio_data = recognizer.record(source)
+        extracted_text = recognizer.recognize_google(audio_data, show_all=True)
+        referenceText = extracted_text['alternative'][0]['transcript']
+
+        # Remove the temporary audio files
+        import os
+        os.remove(audio_path)
+        os.remove("temp_audio.wav")
 
         return jsonify({
             'text': referenceText
         })
 
-    except Exception as e:
-        print(f"Error processing audio: {str(e)}")
-        return jsonify({
-            'error': 'Error processing audio'
-        }), 500
+
+@app.route("/api/extractedText", methods=['GET'])
+def extractedText():
+    return jsonify({
+        'message': referenceText
+    })
+
 
 @app.route("/api/getUserAttempt", methods=['POST'])
 def extract_user_input():
     global userInput
+    audio_file = request.files['audio']
+    # Save the uploaded audio temporarily
+    audio_path = 'temp_audio.webm'
+    audio_file.save(audio_path)
 
-    try:
-        # Set the audio file path
-        audio_file = request.files['audio']
+    # Convert the webm format to wav using pydub
+    # sound = AudioSegment.from_file(audio_path, format="webm")
+    # sound.export("temp_audio.wav", format="wav")
+    ffmpeg_extract_audio(audio_path, "temp_audio.wav")
+    # sound = moviepy.VideoFileClip(audio_path)
+    # sound.audio.write_audiofile("temp_audio.wav")
 
-        # Save the audio file temporarily
-        temp_dir = tempfile.mkdtemp()
-        audio_path = os.path.join(temp_dir, 'temp_audio.wav')
-        audio_file.save(audio_path)
+    # Use SpeechRecognition to transcribe the audio
+    recognizer = sr.Recognizer()
+    with sr.AudioFile("temp_audio.wav") as source:
+        global userInput
+        audio_data = recognizer.record(source)
+        extracted_text = recognizer.recognize_google(audio_data, show_all=True)
+        userInput = extracted_text['alternative'][0]['transcript']
 
-        # Use SpeechRecognition to transcribe the audio
-        recognizer = sr.Recognizer()
-        with sr.AudioFile(audio_path) as source:
-            audio_data = recognizer.record(source)
-            extracted_text = recognizer.recognize_google(audio_data)
-
-        userInput = extracted_text
-
-        # Remove the temporary directory and its contents
-        os.rmdir(temp_dir)
+        # Remove the temporary audio files
+        import os
+        os.remove(audio_path)
+        os.remove("temp_audio.wav")
 
         return jsonify({
             'text': userInput
         })
-
-    except Exception as e:
-        print(f"Error processing audio: {str(e)}")
-        return jsonify({
-            'error': 'Error processing audio'
-        }), 500
 
 @app.route("/api/compareTexts", methods=['GET'])
 def compareTexts():
@@ -119,6 +120,7 @@ def compareTexts():
     headers = {"Authorization": f"Bearer {api_token}"}
     def query(payload):
         response = requests.post(API_URL, headers=headers, json=payload)
+        print(response.json())
         return response.json()
     
     similarity = query(
@@ -137,5 +139,4 @@ def compareTexts():
     
 
 if __name__ == "__main__":
-    app.run(debug=True)
-
+    app.run(debug=True, port=8080)
