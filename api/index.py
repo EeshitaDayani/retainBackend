@@ -84,31 +84,41 @@ def extract_text_from_audio():
 @app.route("/api/getUserAttempt", methods=['POST'])
 def extract_user_input():
     global userInput
-    audio_file = request.files['audio']
-    # Save the uploaded audio temporarily
-    audio_path = 'temp_audio.webm'
-    audio_file.save(audio_path)
 
-    # Convert the webm format to wav using pydub
-    sound = AudioSegment.from_file(audio_path, format="webm")
-    sound.export("temp_audio.wav", format="wav")
+    try:
+        # Create a temporary directory
+        temp_dir = tempfile.mkdtemp()
 
-    # Use SpeechRecognition to transcribe the audio
-    recognizer = sr.Recognizer()
-    with sr.AudioFile("temp_audio.wav") as source:
-        global userInput
-        audio_data = recognizer.record(source)
-        extracted_text = recognizer.recognize_google(audio_data, show_all=True)
-        userInput = extracted_text['alternative'][0]['transcript']
+        # Set the audio file path within the temporary directory
+        audio_path = f'{temp_dir}/temp_audio.webm'
 
-        # Remove the temporary audio files
-        import os
-        os.remove(audio_path)
-        os.remove("temp_audio.wav")
+        # Save the audio file to the temporary directory
+        audio_file = request.files['audio']
+        audio_file.save(audio_path)
+
+        # Convert the webm format to wav using pydub
+        sound = AudioSegment.from_file(audio_path, format="webm")
+        sound.export(f"{temp_dir}/temp_audio.wav", format="wav")
+
+        # Use SpeechRecognition to transcribe the audio
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(f"{temp_dir}/temp_audio.wav") as source:
+            audio_data = recognizer.record(source)
+            extracted_text = recognizer.recognize_google(audio_data, show_all=True)
+            userInput = extracted_text['alternative'][0]['transcript']
+
+        # Remove the temporary directory and its contents
+        os.rmdir(temp_dir)
 
         return jsonify({
             'text': userInput
         })
+
+    except Exception as e:
+        print(f"Error processing audio: {str(e)}")
+        return jsonify({
+            'error': 'Error processing audio'
+        }), 500
 
 @app.route("/api/compareTexts", methods=['GET'])
 def compareTexts():
