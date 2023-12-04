@@ -45,22 +45,27 @@ def extract_text_image():
 
 @app.route("/api/extractTextFromAudio", methods=['POST'])
 def extract_text_from_audio():
+    print('BEGINNING OF FUNCTION')
     global referenceText
 
     # Access the audio file from the request
     audio_file = request.files['audio']
+    print('AFTER FUNCTION LINE audio_file')
 
     # Use SpeechRecognition to transcribe the audio
     recognizer = sr.Recognizer()
+    print('AFTER FUNCTION LINE recognizer')
 
     # Use BytesIO to create an in-memory file-like object
     audio_data = io.BytesIO(audio_file.read())
+    print('AFTER FUNCTION LINE audio_data')
 
     # Seek to the beginning of the in-memory file
     audio_data.seek(0)
 
     try:
         with sr.AudioFile(audio_data) as source:
+            print('AFTER FUNCTION LINE with sr.AudioFile(audio_data) as source:')
             audio_data = recognizer.record(source)
             extracted_text = recognizer.recognize_google(audio_data, show_all=True)
             referenceText = extracted_text['alternative'][0]['transcript']
