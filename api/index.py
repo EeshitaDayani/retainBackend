@@ -5,7 +5,7 @@ import pytesseract
 import speech_recognition as sr
 import requests
 import tempfile
-import os
+import io
 
 app = Flask(__name__)
 CORS(app)
@@ -55,24 +55,18 @@ def extract_text_image():
 @app.route("/api/extractTextFromAudio", methods=['POST'])
 def extract_text_from_audio():
     global referenceText
-    try:
-        # Set the audio file path
-        audio_file = request.files['audio']
 
-        # Save the audio file temporarily
-        temp_dir = tempfile.mkdtemp()
-        audio_path = os.path.join(temp_dir, 'temp_audio.webm')
-        audio_file.save(audio_path)
+    try:
+        # Set the audio file
+        audio_file = request.files['audio']
 
         # Use SpeechRecognition to transcribe the audio
         recognizer = sr.Recognizer()
-        with sr.AudioFile(audio_path) as source:
+        
+        with sr.AudioFile(io.BytesIO(audio_file.read())) as source:
             audio_data = recognizer.record(source)
             extracted_text = recognizer.recognize_google(audio_data, show_all=True)
             referenceText = extracted_text['alternative'][0]['transcript']
-
-        # Remove the temporary directory and its contents
-        os.rmdir(temp_dir)
 
         return jsonify({
             'text': referenceText
@@ -125,7 +119,6 @@ def compareTexts():
     headers = {"Authorization": f"Bearer {api_token}"}
     def query(payload):
         response = requests.post(API_URL, headers=headers, json=payload)
-        print(response.json())
         return response.json()
     
     similarity = query(
