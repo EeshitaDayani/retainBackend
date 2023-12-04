@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
 import pytesseract
-from pydub import AudioSegment
 import speech_recognition as sr
 import requests
 import tempfile
@@ -56,56 +55,55 @@ def extract_text_image():
 @app.route("/api/extractTextFromAudio", methods=['POST'])
 def extract_text_from_audio():
     global referenceText
-    audio_file = request.files['audio']
-    # Save the uploaded audio temporarily
-    audio_path = 'temp_audio.webm'
-    audio_file.save(audio_path)
+    try:
+        # Set the audio file path
+        audio_file = request.files['audio']
 
-    # Convert the webm format to wav using pydub
-    sound = AudioSegment.from_file(audio_path, format="webm")
-    sound.export("temp_audio.wav", format="wav")
+        # Save the audio file temporarily
+        temp_dir = tempfile.mkdtemp()
+        audio_path = os.path.join(temp_dir, 'temp_audio.webm')
+        audio_file.save(audio_path)
 
-    # Use SpeechRecognition to transcribe the audio
-    recognizer = sr.Recognizer()
-    with sr.AudioFile("temp_audio.wav") as source:
-        audio_data = recognizer.record(source)
-        extracted_text = recognizer.recognize_google(audio_data, show_all=True)
-        referenceText = extracted_text['alternative'][0]['transcript']
+        # Use SpeechRecognition to transcribe the audio
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(audio_path) as source:
+            audio_data = recognizer.record(source)
+            extracted_text = recognizer.recognize_google(audio_data, show_all=True)
+            referenceText = extracted_text['alternative'][0]['transcript']
 
-        # Remove the temporary audio files
-        import os
-        os.remove(audio_path)
-        os.remove("temp_audio.wav")
+        # Remove the temporary directory and its contents
+        os.rmdir(temp_dir)
 
         return jsonify({
             'text': referenceText
         })
+
+    except Exception as e:
+        print(f"Error processing audio: {str(e)}")
+        return jsonify({
+            'error': 'Error processing audio'
+        }), 500
 
 @app.route("/api/getUserAttempt", methods=['POST'])
 def extract_user_input():
     global userInput
 
     try:
-        # Create a temporary directory
-        temp_dir = tempfile.mkdtemp()
-
-        # Set the audio file path within the temporary directory
-        audio_path = f'{temp_dir}/temp_audio.webm'
-
-        # Save the audio file to the temporary directory
+        # Set the audio file path
         audio_file = request.files['audio']
-        audio_file.save(audio_path)
 
-        # Convert the webm format to wav using pydub
-        sound = AudioSegment.from_file(audio_path, format="webm")
-        sound.export(f"{temp_dir}/temp_audio.wav", format="wav")
+        # Save the audio file temporarily
+        temp_dir = tempfile.mkdtemp()
+        audio_path = os.path.join(temp_dir, 'temp_audio.wav')
+        audio_file.save(audio_path)
 
         # Use SpeechRecognition to transcribe the audio
         recognizer = sr.Recognizer()
-        with sr.AudioFile(f"{temp_dir}/temp_audio.wav") as source:
+        with sr.AudioFile(audio_path) as source:
             audio_data = recognizer.record(source)
-            extracted_text = recognizer.recognize_google(audio_data, show_all=True)
-            userInput = extracted_text['alternative'][0]['transcript']
+            extracted_text = recognizer.recognize_google(audio_data)
+
+        userInput = extracted_text
 
         # Remove the temporary directory and its contents
         os.rmdir(temp_dir)
