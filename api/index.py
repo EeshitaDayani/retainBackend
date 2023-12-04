@@ -5,6 +5,7 @@ import pytesseract
 from pydub import AudioSegment
 import speech_recognition as sr
 import requests
+import tempfile
 
 app = Flask(__name__)
 CORS(app)
@@ -24,21 +25,32 @@ def return_text_input():
 @app.route("/api/extractTextFromImage", methods=['POST'])
 def extract_text_image():
     global referenceText
-    file = request.files['file']
-    # Save the uploaded image temporarily
-    image_path = 'temp_image.png'
-    file.save(image_path)
 
-    # Use Tesseract to extract text from the image
-    referenceText = pytesseract.image_to_string(Image.open(image_path)).strip()
+    try:
+        file = request.files['file']
 
-    # Remove the temporary image file
-    import os
-    os.remove(image_path)
+        # Create a temporary directory
+        temp_dir = tempfile.mkdtemp()
+        image_path = os.path.join(temp_dir, 'temp_image.png')
 
-    return jsonify({
-        'text': referenceText
-    })
+        # Save the uploaded image temporarily
+        file.save(image_path)
+
+        # Use Tesseract to extract text from the image
+        referenceText = pytesseract.image_to_string(Image.open(image_path)).strip()
+
+        # Remove the temporary image file and directory
+        os.remove(image_path)
+        os.rmdir(temp_dir)
+
+        return jsonify({
+            'text': referenceText
+        })
+    except Exception as e:
+        print(f"Error extracting text from image: {e}")
+        return jsonify({
+            'text': ''
+        })
 
 @app.route("/api/extractTextFromAudio", methods=['POST'])
 def extract_text_from_audio():
