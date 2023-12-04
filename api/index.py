@@ -4,6 +4,7 @@ from PIL import Image
 import pytesseract
 #from pydub import AudioSegment
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_audio
+import io
 import speech_recognition as sr
 import requests
 
@@ -45,33 +46,32 @@ def extract_text_image():
 @app.route("/api/extractTextFromAudio", methods=['POST'])
 def extract_text_from_audio():
     global referenceText
-    audio_file = request.files['audio']
-    # Save the uploaded audio temporarily
-    audio_path = 'temp_audio.webm'
-    audio_file.save(audio_path)
 
-    # Convert the webm format to wav using pydub
-    #sound = AudioSegment.from_file(audio_path, format="webm")
-    #sound.export("temp_audio.wav", format="wav")
-    ffmpeg_extract_audio(audio_path, "temp_audio.wav")
-    #sound = moviepy.VideoFileClip(audio_path)
-    #sound.audio.write_audiofile("temp_audio.wav")
+    # Access the audio file from the request
+    audio_file = request.files['audio']
 
     # Use SpeechRecognition to transcribe the audio
     recognizer = sr.Recognizer()
-    with sr.AudioFile("temp_audio.wav") as source:
-        audio_data = recognizer.record(source)
-        extracted_text = recognizer.recognize_google(audio_data, show_all=True)
-        referenceText = extracted_text['alternative'][0]['transcript']
 
-        # Remove the temporary audio files
-        import os
-        os.remove(audio_path)
-        os.remove("temp_audio.wav")
+    # Use BytesIO to create an in-memory file-like object
+    audio_data = io.BytesIO(audio_file.read())
 
+    # Seek to the beginning of the in-memory file
+    audio_data.seek(0)
+
+    try:
+        with sr.AudioFile(audio_data) as source:
+            audio_data = recognizer.record(source)
+            extracted_text = recognizer.recognize_google(audio_data, show_all=True)
+            referenceText = extracted_text['alternative'][0]['transcript']
+
+            return jsonify({
+                'text': referenceText
+            })
+    except Exception as e:
         return jsonify({
-            'text': referenceText
-        })
+            'error': str(e)
+        }), 500
 
 
 @app.route("/api/extractedText", methods=['GET'])
