@@ -1,10 +1,10 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
-import pytesseract
+#import pytesseract
+import easyocr
 #from pydub import AudioSegment
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_audio
-import io
 import speech_recognition as sr
 import requests
 
@@ -33,7 +33,9 @@ def extract_text_image():
     file.save(image_path)
 
     # Use Tesseract to extract text from the image
-    referenceText = pytesseract.image_to_string(Image.open(image_path)).strip()
+    reader = easyocr.Reader(['en'], gpu = True)
+    referenceText = (' '.join(reader.readtext(image_path, detail = 0)))
+    #referenceText = pytesseract.image_to_string(Image.open(image_path)).strip()
 
     # Remove the temporary image file
     import os
@@ -45,38 +47,34 @@ def extract_text_image():
 
 @app.route("/api/extractTextFromAudio", methods=['POST'])
 def extract_text_from_audio():
-    print('BEGINNING OF FUNCTION')
     global referenceText
-
-    # Access the audio file from the request
     audio_file = request.files['audio']
-    print('AFTER FUNCTION LINE audio_file')
+    # Save the uploaded audio temporarily
+    audio_path = 'temp_audio.webm'
+    audio_file.save(audio_path)
+
+    # Convert the webm format to wav using pydub
+    #sound = AudioSegment.from_file(audio_path, format="webm")
+    #sound.export("temp_audio.wav", format="wav")
+    ffmpeg_extract_audio(audio_path, "temp_audio.wav")
+    #sound = moviepy.VideoFileClip(audio_path)
+    #sound.audio.write_audiofile("temp_audio.wav")
 
     # Use SpeechRecognition to transcribe the audio
     recognizer = sr.Recognizer()
-    print('AFTER FUNCTION LINE recognizer')
+    with sr.AudioFile("temp_audio.wav") as source:
+        audio_data = recognizer.record(source)
+        extracted_text = recognizer.recognize_google(audio_data, show_all=True)
+        referenceText = extracted_text['alternative'][0]['transcript']
 
-    # Use BytesIO to create an in-memory file-like object
-    audio_data = io.BytesIO(audio_file.read())
-    print('AFTER FUNCTION LINE audio_data')
+        # Remove the temporary audio files
+        import os
+        os.remove(audio_path)
+        os.remove("temp_audio.wav")
 
-    # Seek to the beginning of the in-memory file
-    audio_data.seek(0)
-
-    try:
-        with sr.AudioFile(audio_data) as source:
-            print('AFTER FUNCTION LINE with sr.AudioFile(audio_data) as source:')
-            audio_data = recognizer.record(source)
-            extracted_text = recognizer.recognize_google(audio_data, show_all=True)
-            referenceText = extracted_text['alternative'][0]['transcript']
-
-            return jsonify({
-                'text': referenceText
-            })
-    except Exception as e:
         return jsonify({
-            'error': str(e)
-        }), 500
+            'text': referenceText
+        })
 
 
 @app.route("/api/extractedText", methods=['GET'])
